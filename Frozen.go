@@ -33,25 +33,40 @@ func (s *server) start() {
 	s.listener = srv
 }
 
-func handleConnection(c net.Conn) {
-	fmt.Printf("Serving %s\n", c.RemoteAddr().String())
-	defer c.Close()
-	for {
-			netData, err := bufio.NewReader(c).ReadString('\n')
-			if err != nil {
-					fmt.Println(err)
-					return
-			}
+type connection struct {
+	conn	net.Conn
+	addr	string
+}
 
-			temp := strings.TrimSpace(string(netData))
-			if temp == "STOP" {
-					break
-			}
+func (c *connection) end(reason string) {
+	fmt.Println("Connection: ", c.addr, " ended w/ reason: ", reason)
+}
 
-			// result := strconv.Itoa(random()) + "\n"
-			c.Write([]byte("Some response"))
+func (c *connection) receive() (text *string) {
+	netData, err := bufio.NewReader(c.conn).ReadString('\n')
+	if err != nil {
+		fmt.Println(err)
+		return nil
 	}
-	// c.Close()
+
+	temp := strings.TrimSpace(string(netData))
+	if temp == "STOP" {
+		c.end("Client goodbye received")
+	}
+	return &temp
+}
+
+func (c *connection) handler() {
+	fmt.Printf("Serving %s\n", c.conn.RemoteAddr().String())
+	defer c.end("Client lost")
+	for {
+		text := c.receive()
+		if text == nil {
+			break
+		}
+		fmt.Println("Received: ", *text, " from: ", c.addr)
+		c.conn.Write([]byte("Some response"))
+	}
 }
 
 func main() {
@@ -69,6 +84,8 @@ func main() {
 			return
 		}
 
-		go handleConnection(c)
+		conn := connection{ conn: c, addr: c.RemoteAddr().String() }
+		go conn.handler()
+		// go handleConnection({})
 	}
 }
