@@ -30,6 +30,7 @@ func main() {
 
 			conn := connection{ conn: c, addr: c.RemoteAddr().String() }
 			conn.session = &user{}
+			conn.server = &e
 			current_connections = append(current_connections, &conn)
 			go conn.handler()
 		}

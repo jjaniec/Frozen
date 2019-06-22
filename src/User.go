@@ -9,6 +9,7 @@ type user struct {
 	username string
 	nickname string
 	password string
+	full_name string
 	client	*connection
 }
 
