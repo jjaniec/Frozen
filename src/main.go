@@ -24,7 +24,7 @@ func main() {
 		for {
 			c, err := e.listener.Accept()
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("err1", err)
 				return
 			}
 

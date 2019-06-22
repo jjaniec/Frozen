@@ -8,8 +8,6 @@ import (
 	"os"
 )
 
-const RPL_WELCOME = "001"
-
 type connection struct {
 	conn	net.Conn
 	addr	string
@@ -44,9 +42,9 @@ func (c *connection) format_resp(args ...string) (string) {
 func (c *connection) receive() (text []string) {
 	reader := bufio.NewReader(c.conn)
 	var lines []string
+	lines = nil
 	for {
 		netData, err := reader.ReadString('\n')
-		// fmt.Println("Request: ", netData, " len: ", len(netData))
 		lines = append(lines, netData)
 		fmt.Println(lines)
 		if err != nil {
@@ -74,17 +72,23 @@ func (c *connection) handle_line(words []string) {
 			c.handle_cmd_pass(words[1])
 		}
 	case "NICK":
-		resp := c.session.update_nickname(words)
-		c.send(resp)
-		if len(resp) > 0 {
-			c.session.client = c
+		if len(words) < 1 {
+			c.send("ERR_NEEDMOREPARAMS")
+		} else {
+			resp_code, resp_str := c.handle_cmd_nick(words[1])
+			if resp_str != "" && resp_code != ERR_NICKNAMEINUSE {
+				c.send(c.format_resp(resp_code, resp_str))
+				c.session.client = c
+			} else {
+				c.send(c.format_resp(resp_code, "*", words[1], resp_str))
+			}
 		}
 	case "USER":
-		if len(words) < 4 {
+		if len(words) < 5 {
 			c.send("ERR_NEEDMOREPARAMS") // send need more params
 		} else {
-			resp := c.handle_cmd_user(words[0], words[1], words[2], words[3])
-			c.send(c.format_resp(RPL_WELCOME, c.session.username, resp))
+			resp_code, resp_str := c.handle_cmd_user(words[1], words[2], words[3], words[4])
+			c.send(c.format_resp(resp_code, c.session.username, resp_str))
 		}
 	case "NAMES":
 		fmt.Println(current_connections)
@@ -102,6 +106,12 @@ func (c *connection) handle_line(words []string) {
 		if (*c.session == user{}) {
 			c.send("You must login first !")
 		}
+	case "PRIVMSG":
+		if len(words) < 2 {
+			c.send("ERR_NEEDMOREPARAMS")
+		} else {
+			c.handle_cmd_privmsg(words[1], words[2])
+		}
 	}
 }
 
@@ -110,6 +120,10 @@ func (c *connection) handler() {
 	defer c.end("Client lost")
 	for {
 		lines := c.receive()
+		if lines == nil {
+			print("nil")
+			break
+		}
 		for _, line := range lines {
 			temp := strings.TrimSpace(string(line))
 			words := strings.Fields(temp)
