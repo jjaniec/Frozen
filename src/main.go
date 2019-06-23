@@ -24,12 +24,13 @@ func main() {
 		for {
 			c, err := e.listener.Accept()
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("err1", err)
 				return
 			}
 
 			conn := connection{ conn: c, addr: c.RemoteAddr().String() }
 			conn.session = &user{}
+			conn.server = &e
 			current_connections = append(current_connections, &conn)
 			go conn.handler()
 		}
