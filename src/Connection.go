@@ -88,7 +88,15 @@ func (c *connection) handle_line(words []string) {
 	case "JOIN":
 		if (*c.session == user{}) {
 			c.send("You must login first !")
+		} else {
+			if len(words) < 2 {
+				c.send("ERR_NEEDMOREPARAMS") // send need more params
+			} else {
+				c.handle_cmd_join(words[1])
+			}
 		}
+	case "LIST":
+		c.handle_cmd_list()
 	case "PRIVMSG":
 		if len(words) < 2 {
 			c.send("ERR_NEEDMOREPARAMS")
