@@ -18,6 +18,8 @@ const ERR_NICKNAMEINUSE = "433"
 const ERR_NONICKNAMEGIVEN = "431"
 const ERR_NOSUCHNICK = "401"
 const ERR_BADCHANNELKEY = "475"
+const ERR_NOSUCHCHANNEL = "403"
+const ERR_NOTONCHANNEL = "442"
 
 
 func (c *connection) handle_cmd_pass(password string) {
@@ -154,5 +156,35 @@ func (c *connection) handle_cmd_list() (resp_code string, resp_str string){
 		c.send(c.format_resp(RPL_LIST, c.session.nickname, e.name, fmt.Sprintf("%d", len(e.subscribed_users)), ":topics not inplemtend yet"))
 	}
 	c.send(c.format_resp(RPL_LISTEND, c.session.nickname, ":End of LIST"))
+	return
+}
+
+
+func (c *connection) handle_cmd_part(channelname string) (resp_code string, resp_str string){
+	chan_ := get_channel(channelname)
+	if (chan_ == nil) {
+		c.send(c.format_resp(ERR_NOSUCHCHANNEL, c.session.nickname, channelname, ":No such channel"))
+	} else {
+		for i, e := range chan_.subscribed_users {
+			if (e == c.session) {
+				fmt.Printf("User %s left channel %s\n", c.session.nickname, chan_.name)
+				chan_.subscribed_users[i] = chan_.subscribed_users[len(chan_.subscribed_users) - 1]
+				chan_.subscribed_users[len(chan_.subscribed_users) - 1] = nil
+				chan_.subscribed_users = chan_.subscribed_users[:len(chan_.subscribed_users) - 1]
+
+				if (len(chan_.subscribed_users) <= 0) {
+					for j, f := range current_channels {
+						if (f == chan_) {
+							current_channels[j] = current_channels[len(current_channels) - 1]
+							current_channels[len(current_channels) - 1] = nil
+							current_channels = current_channels[:len(current_channels) - 1]
+						}
+					}
+				}
+				return
+			}
+		}
+		c.send(c.format_resp(ERR_NOTONCHANNEL, c.session.nickname, channelname, ":You're not on that channel"))
+	}
 	return
 }

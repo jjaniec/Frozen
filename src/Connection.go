@@ -118,6 +118,12 @@ func (c *connection) handle_line(words []string, raw_line string) {
 		}
 	case "LIST":
 		c.handle_cmd_list()
+	case "PART":
+		if len(words) < 1 {
+			c.send("ERR_NEEDMOREPARAMS") // send need more params
+		} else {
+			c.handle_cmd_part(words[1])
+		}
 	case "PRIVMSG":
 		// print(words)
 		fmt.Println(c.session.client)
