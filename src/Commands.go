@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"regexp"
 )
 
 const RPL_WELCOME = "001"
@@ -25,11 +26,12 @@ func (c *connection) handle_cmd_nick(nickname string) (resp_code string, resp_st
 	// https://tools.ietf.org/html/rfc1459#section-4.1.2
 	for _, e := range current_users {
 		if (e.nickname == nickname) {
-			return ERR_NICKNAMEINUSE, "Nickname is already in use."
+			return ERR_NICKNAMEINUSE, ":Nickname is already in use."
 		}
 	}
 	fmt.Println("User nickname: ", c.session.nickname, " updated as ", nickname)
 	c.session.nickname = nickname
+	// c.session.client = c
 	current_users = append(current_users, c.session)
 	return
 }
@@ -41,6 +43,7 @@ func (c *connection) handle_cmd_user(username string, hostname string, servernam
 	}
 	c.session.username = username
 	c.session.realname = realname
+	// return RPL_WELCOME, ":Welcome to the Internet Relay Network"
 	return RPL_WELCOME, fmt.Sprintf(":Welcome to the Internet Relay Network %s!%s@%s", c.session.nickname, c.session.username, c.server.prefix)
 }
 
@@ -88,13 +91,27 @@ func (c *connection) handle_cmd_names(channels string) (nicknames_fmt []string) 
 	return resp
 }
 
-func (c *connection) handle_cmd_privmsg(receiver string, text string) {
+func parse_last_argument(raw_line string) (match string) {
+	r, _ := regexp.Compile(`(PRIVMSG [#$]?[\w,]*)[ ]:([\w\s]{1,})$`)
+	rslt := r.FindStringIndex(raw_line)
+	if (len(rslt) > 0) {
+		fmt.Println("Found", rslt, " - ", rslt[1], " - ", raw_line[rslt[1]:])
+		return "TEST"
+		// return raw_line[rslt[1]:]
+	}
+	return ""
+}
+
+func (c *connection) handle_cmd_privmsg(receiver string, raw_line string) {
 	// https://tools.ietf.org/html/rfc1459#section-4.4.1
 	receivers := strings.Split(receiver, ",")
+	text := parse_last_argument(raw_line)
+	fmt.Println("Send message", text, "- To receivers ", receivers)
 	for _, e := range receivers {
 		if (e[0] != '#' && e[0] != '$') {
 			for _, u := range current_users {
 				if (u.nickname == e) {
+					fmt.Println("Send to user : ", u, "client", u.client)
 					u.client.send(fmt.Sprintf(":%s!%s@%s PRIVMSG %s :%s", c.session.nickname, c.session.username, c.server.prefix, receiver, text))
 					return
 				}
