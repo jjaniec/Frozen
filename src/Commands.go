@@ -6,9 +6,13 @@ import (
 )
 
 const RPL_WELCOME = "001"
+const RPL_ENDOFNAMES = "366"
+const RPL_NAMREPLY = "353"
+
 const ERR_NICKNAMEINUSE = "433"
 const ERR_NONICKNAMEGIVEN = "431"
 const ERR_NOSUCHNICK = "401"
+
 
 func (c *connection) handle_cmd_pass(password string) {
 	// https://tools.ietf.org/html/rfc1459#section-4.1.1
@@ -17,7 +21,6 @@ func (c *connection) handle_cmd_pass(password string) {
 
 func (c *connection) handle_cmd_nick(nickname string) (resp_code string, resp_str string) {
 	// https://tools.ietf.org/html/rfc1459#section-4.1.2
-	// Check if nickname already taken
 	for _, e := range current_users {
 		if (e.nickname == nickname) {
 			return ERR_NICKNAMEINUSE, "Nickname is already in use."
@@ -31,7 +34,6 @@ func (c *connection) handle_cmd_nick(nickname string) (resp_code string, resp_st
 
 func (c *connection) handle_cmd_user(username string, hostname string, servername string, realname string) (resp_code string, resp_str string){
 	// https://tools.ietf.org/html/rfc1459#section-4.1.3
-	// Only nicknames must be unique
 	if (c.session.nickname == "") {
 		return ERR_NONICKNAMEGIVEN, fmt.Sprintf(":No nickname given")
 	}
@@ -40,18 +42,46 @@ func (c *connection) handle_cmd_user(username string, hostname string, servernam
 	return RPL_WELCOME, fmt.Sprintf(":Welcome to the Internet Relay Network %s!%s@%s", c.session.nickname, c.session.username, c.server.prefix)
 }
 
-func (c *connection) handle_cmd_names(channels_names []string) (nicknames []string) {
+func get_channel(channel_name string) (channel_ptr *channel){
+	for _, c := range current_channels {
+		if (c.name == channel_name) {
+			return c
+		}
+	}
+	return nil
+}
+
+func get_channel_nicknames(channel_ *channel) (users_nicknames []string) {
+	var r []string
+
+	for _, u := range channel_.subscribed_users {
+		r = append(r, u.nickname)
+	}
+	return r
+}
+
+func (c *connection) handle_cmd_names(channels string) (nicknames_fmt []string) {
 	// https://tools.ietf.org/html/rfc1459#section-4.2.5
 	var resp []string
 
-	fmt.Println(current_connections)
-	for _, e := range current_connections {
-		if (e.session != nil) {
-			resp = append(resp, e.session.nickname)
+	channels_list := strings.Split(channels, ",")
+	if (channels != "") {
+		for _, c := range channels_list {
+			if (c[0] == '#') {
+				chan_ptr := get_channel(c[1:])
+				channel_nicknames := get_channel_nicknames(chan_ptr)
+				channel_nicknames_fmt := strings.Join(channel_nicknames, " ")
+				resp = append(resp, fmt.Sprintf("= %s :%s", c, channel_nicknames_fmt))
+			}
 		}
-	}
-	if (len(resp) == 0) {
-		return []string{"No users currently connected"}
+	} else {
+		var nicknames []string
+		for _, e := range current_connections {
+			if (e.session != nil) {
+				nicknames = append(nicknames, e.session.nickname)
+			}
+		}
+		resp = append(resp, fmt.Sprintf("%s %s :%s", "*", "*", strings.Join(nicknames, " ")))
 	}
 	return resp
 }

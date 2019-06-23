@@ -71,9 +71,20 @@ func (c *connection) handle_line(words []string) {
 			c.send(c.format_resp(resp_code, c.session.username, resp_str))
 		}
 	case "NAMES":
-		resp := c.handle_cmd_names([]string{""})
-		c.send(c.format_resp("353", c.session.nickname, "*", "*", fmt.Sprintf(":%s", strings.Join(resp[:], " "))))
-		c.send(c.format_resp("366", c.session.nickname, "*", ":End of /NAMES list."))
+		var nicknames_fmt []string
+
+		if (c.session.nickname == "") {
+			return
+		}
+		if (len(words) > 1) {
+			nicknames_fmt = c.handle_cmd_names(words[1])
+		} else {
+			nicknames_fmt = c.handle_cmd_names("")
+		}
+		for _, e := range nicknames_fmt {
+			c.send(c.format_resp(RPL_NAMREPLY, c.session.nickname, e))
+		}
+		c.send(c.format_resp(RPL_ENDOFNAMES, c.session.nickname, "*", ":End of /NAMES list."))
 	case "JOIN":
 		if (*c.session == user{}) {
 			c.send("You must login first !")
