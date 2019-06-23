@@ -8,6 +8,10 @@ import (
 	"io"
 )
 
+const ERR_NORECIPIENT = "411"
+const ERR_NOTEXTTOSEND = "412"
+const ERR_NOTREGISTERED = "451" // ":You have not registered"
+
 type connection struct {
 	conn	net.Conn
 	addr	string
@@ -17,15 +21,30 @@ type connection struct {
 
 func (c *connection) end(reason string) {
 	fmt.Println("Connection: ", c.addr, " ended w/ reason: ", reason)
-	//remove connection & user from slices
-	// tmp[&c] := current_connections[len(current_connections) - 1]
-	// current_connections = 
-	// current_users = 
+	if (c.session != nil && c.session.nickname != "") {
+		for i, e := range current_users {
+			if (e.nickname == c.session.nickname) {
+				fmt.Println("Delete user", c.session.nickname)
+				current_users[i] = current_users[len(current_users) - 1]
+				current_users[len(current_users) - 1] = nil
+				current_users = current_users[:len(current_users) - 1]
+			}
+		}
+	}
+	for i, e := range current_connections {
+		if (e.addr == c.addr) {
+			fmt.Println("Delete connection", c)
+			current_connections[i] = current_connections[len(current_connections) - 1]
+			current_connections[len(current_connections) - 1] = nil
+			current_connections = current_connections[:len(current_connections) - 1]
+
+		}
+	}
 }
 
 func (c *connection) send(text string) {
 	if len(text) > 0 {
-		resp := fmt.Sprintf("%s\n", text)
+		resp := fmt.Sprintf("%s\r\n", text)
 		c.conn.Write([]byte(resp))
 		fmt.Println("Answer", resp)
 	}
@@ -39,8 +58,10 @@ func (c *connection) format_resp(args ...string) (string) {
 	return strings.Join(ret[:], " ")
 }
 
-func (c *connection) handle_line(words []string) {
-	switch words[0] {
+func (c *connection) handle_line(words []string, raw_line string) {
+	// Here,handle nickname suffixes (like :Bob PRIVMSG Alex :bla bla)
+	cmd_str := words[0]
+	switch cmd_str {
 	case "ping":
 		c.send("pong")
 	case "kill":
@@ -58,8 +79,8 @@ func (c *connection) handle_line(words []string) {
 			resp_code, resp_str := c.handle_cmd_nick(words[1])
 			if resp_code == ERR_NICKNAMEINUSE {
 				c.send(c.format_resp(resp_code, "*", words[1], resp_str))
-			} else if resp_str != "" && resp_code != ERR_NICKNAMEINUSE {
-				c.send(c.format_resp(resp_code, resp_str))
+			} else if resp_code != ERR_NICKNAMEINUSE {
+				// c.send(c.format_resp(resp_code, resp_str))
 				c.session.client = c
 			}
 		}
@@ -98,10 +119,16 @@ func (c *connection) handle_line(words []string) {
 	case "LIST":
 		c.handle_cmd_list()
 	case "PRIVMSG":
-		if len(words) < 2 {
-			c.send("ERR_NEEDMOREPARAMS")
+		// print(words)
+		fmt.Println(c.session.client)
+		if (c.session.nickname == "") {
+			c.send(c.format_resp(ERR_NOTREGISTERED, "*", ":You have not registered"))
+		} else if len(words) == 1 {
+			c.send(c.format_resp(ERR_NORECIPIENT, c.session.nickname, ":No recipient given (PRIVMSG)"))
+		} else if len(words) == 2 {
+			c.send(c.format_resp(ERR_NOTEXTTOSEND, c.session.nickname, ":No text to send"))
 		} else {
-			c.handle_cmd_privmsg(words[1], words[2])
+			c.handle_cmd_privmsg(words[1], raw_line)
 		}
 	}
 }
@@ -119,7 +146,7 @@ func (c *connection) receive() (status error, text []string) {
 	}
 	buf = append(buf, tmp[:n]...)
 	// fmt.Println("Append: ", tmp)
-	fmt.Println("total size:", len(buf), " buf: ", buf)
+	// fmt.Println("total size:", len(buf), " buf: ", buf)
 	lines := strings.Split(string(buf), "\r\n")
 	return nil, lines
 }
@@ -140,7 +167,7 @@ func (c *connection) handler() {
 				break
 			}
 			fmt.Println("Received: ", words, " from: ", c.addr)
-			c.handle_line(words)
+			c.handle_line(words, line)
 		}
 	}
 }
