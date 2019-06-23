@@ -73,26 +73,20 @@ func (c *connection) handle_cmd_names(channels string) (nicknames_fmt []string) 
 	var resp []string
 
 	channels_list := strings.Split(channels, ",")
-	if (channels != "") {
-		for _, c := range channels_list {
-			if (c[0] == '#') {
-				chan_ptr := get_channel(c)
-				if (chan_ptr != nil) {
-					channel_nicknames := get_channel_nicknames(chan_ptr)
-					channel_nicknames_fmt := strings.Join(channel_nicknames, " ")
-					resp = append(resp, fmt.Sprintf("= %s :%s", c, channel_nicknames_fmt))
-					return resp
-				}
+	var is_channel_in_args = func(channels []string, current_channel *channel) bool {
+		for _, channel := range channels {
+			if (channel == current_channel.name) {
+				return true
 			}
 		}
-	} else {
-		var nicknames []string
-		for _, e := range current_connections {
-			if (e.session != nil) {
-				nicknames = append(nicknames, e.session.nickname)
-			}
+		return false
+	}
+	for _, channel := range current_channels {
+		if (channels == "" || (is_channel_in_args(channels_list, channel) == true)) {
+			channel_nicknames := get_channel_nicknames(channel)
+			channel_nicknames_fmt := strings.Join(channel_nicknames, " ")
+			resp = append(resp, fmt.Sprintf("= %s :%s", channel.name, channel_nicknames_fmt))
 		}
-		resp = append(resp, fmt.Sprintf("%s %s :%s", "*", "*", strings.Join(nicknames, " ")))
 	}
 	return resp
 }
@@ -153,8 +147,11 @@ func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp
 		newchan.subscribed_users = append(newchan.subscribed_users, c.session)
 	}
 	c.send(c.format_resp(RPL_TOPIC, c.session.nickname, newchan.name, ":", "Channel topic not implemented yet"))
-	c.send(c.format_resp(RPL_NAMREPLY, fmt.Sprintf("%s = %s :%s", c.session.nickname, newchan.name, get_channel_nicknames(newchan))))
-	c.send(c.format_resp(RPL_ENDOFNAMES, c.session.nickname, newchan.name, ":End of NAMES list"))
+	channel_nicknames_fmt := c.handle_cmd_names(newchan.name)
+	for _, e := range channel_nicknames_fmt {
+		c.send(c.format_resp(RPL_NAMREPLY, c.session.nickname, e))
+	}
+	c.send(c.format_resp(RPL_ENDOFNAMES, c.session.nickname, "*", ":End of /NAMES list."))
 	c.send(c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "JOIN", channelname))
 	c.handle_cmd_notice(fmt.Sprintf(":[%s] Welcome to the %s channel", channelname, channelname))
 	return

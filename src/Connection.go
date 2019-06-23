@@ -23,7 +23,7 @@ func (c *connection) end(reason string) {
 	fmt.Println("Connection: ", c.addr, " ended w/ reason: ", reason)
 	if (c.session != nil && c.session.nickname != "") {
 		for i, e := range current_users {
-			if (e.nickname == c.session.nickname) {
+			if (e != nil && e.nickname == c.session.nickname) {
 				fmt.Println("Delete user", c.session.nickname)
 				if (len(current_users) == 1) {
 					current_users = []*user{}
@@ -36,7 +36,7 @@ func (c *connection) end(reason string) {
 		}
 	}
 	for i, e := range current_connections {
-		if (e.addr == c.addr) {
+		if (e != nil && e.addr == c.addr) {
 			fmt.Println("Delete connection", c)
 			if (len(current_connections) == 1) {
 				current_connections = []*connection{}
@@ -158,8 +158,6 @@ func (c *connection) receive() (status error, text []string) {
 		return err, nil
 	}
 	buf = append(buf, tmp[:n]...)
-	// fmt.Println("Append: ", tmp)
-	// fmt.Println("total size:", len(buf), " buf: ", buf)
 	lines := strings.Split(string(buf), "\r\n")
 	return nil, lines
 }
