@@ -20,6 +20,7 @@ const ERR_NOSUCHNICK = "401"
 const ERR_BADCHANNELKEY = "475"
 const ERR_NOSUCHCHANNEL = "403"
 const ERR_NOTONCHANNEL = "442"
+const ERR_USERONCHANNEL = "443"
 
 
 func (c *connection) handle_cmd_pass(password string) {
@@ -138,12 +139,18 @@ func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp
 	}
 	newchan := get_channel(channelname)
 	if (newchan == nil) {
-		newchan = &channel{name: channelname, subscribed_users: []*user{c.session}}
+		newchan = &channel{name: channelname, topic: "", subscribed_users: []*user{c.session}}
 		current_channels = append(current_channels, newchan)
 	} else {
+		for _, u := range newchan.subscribed_users {
+			if (u == c.session) {
+				c.send(c.format_resp(ERR_USERONCHANNEL, c.session.nickname, newchan.name, ":is already on channel"))
+				return
+			}
+		}
 		newchan.subscribed_users = append(newchan.subscribed_users, c.session)
 	}
-	c.send(c.format_resp(RPL_TOPIC, c.session.nickname, newchan.name, ":", "Channel topic not implemented yet"))
+	c.send(c.format_resp(RPL_TOPIC, c.session.nickname, newchan.name, ":", newchan.topic))
 	c.send(c.format_resp(RPL_NAMREPLY, fmt.Sprintf("%s = %s :%s", c.session.nickname, newchan.name, get_channel_nicknames(newchan))))
 	c.send(c.format_resp(RPL_ENDOFNAMES, c.session.nickname, newchan.name, ":End of NAMES list"))
 	c.send(c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "JOIN", channelname))
@@ -156,7 +163,7 @@ func (c *connection) handle_cmd_list() (resp_code string, resp_str string){
 	// https://tools.ietf.org/html/rfc1459#section-4.2.6
 	c.send(c.format_resp(RPL_LISTSTART, c.session.nickname, "Channel :Users Topic"))
 	for _, e := range current_channels {
-		c.send(c.format_resp(RPL_LIST, c.session.nickname, e.name, fmt.Sprintf("%d", len(e.subscribed_users)), ":topics not inplemtend yet"))
+		c.send(c.format_resp(RPL_LIST, c.session.nickname, e.name, fmt.Sprintf("%d :%s", len(e.subscribed_users), e.topic)))
 	}
 	c.send(c.format_resp(RPL_LISTEND, c.session.nickname, ":End of LIST"))
 	return
@@ -175,7 +182,9 @@ func (c *connection) handle_cmd_part(channelname string) (resp_code string, resp
 				chan_.subscribed_users[len(chan_.subscribed_users) - 1] = nil
 				chan_.subscribed_users = chan_.subscribed_users[:len(chan_.subscribed_users) - 1]
 
-				if (len(chan_.subscribed_users) <= 0) {
+				c.send(c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "PART", channelname))
+
+				if (len(chan_.subscribed_users) <= 0 && chan_.name != "#home") {
 					for j, f := range current_channels {
 						if (f == chan_) {
 							current_channels[j] = current_channels[len(current_channels) - 1]
@@ -190,6 +199,27 @@ func (c *connection) handle_cmd_part(channelname string) (resp_code string, resp
 		c.send(c.format_resp(ERR_NOTONCHANNEL, c.session.nickname, channelname, ":You're not on that channel"))
 	}
 	return
+}
+
+//func (c *connection) handle_cmd_topic(channelname string, topic string) {
+func (c *connection) handle_cmd_topic(channelname string, topic string) {
+	chan_ := get_channel(channelname)
+	if (chan_ == nil) {
+		c.send(c.format_resp(ERR_NOSUCHCHANNEL, c.session.nickname, channelname, ":No such channel"))
+	} else {
+		for _, u := range chan_.subscribed_users {
+			if (u == c.session) {
+				if (topic == "") {
+					c.send(c.format_resp(RPL_TOPIC, c.session.nickname, chan_.name, ":", chan_.topic))
+				} else {
+					chan_.topic = topic
+					c.send(c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "TOPIC", channelname, topic))
+				}
+				return
+			}
+		}
+		c.send(c.format_resp(ERR_NOTONCHANNEL, c.session.nickname, channelname, ":You're not on that channel"))
+	}
 }
 
 func (c *connection) handle_cmd_notice(text string) {

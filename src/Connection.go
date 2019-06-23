@@ -120,6 +120,16 @@ func (c *connection) handle_line(words []string, raw_line string) {
 		}
 	case "LIST":
 		c.handle_cmd_list()
+	case "TOPIC":
+		if len(words) < 2 {
+			c.send("ERR_NEEDMOREPARAMS") // send need more params
+		} else {
+			if (len(words) == 2) {
+				c.handle_cmd_topic(words[1], "")
+			} else {
+				c.handle_cmd_topic(words[1], strings.Join(words[2:], " "))
+			}
+		}
 	case "PART":
 		if len(words) < 1 {
 			c.send("ERR_NEEDMOREPARAMS") // send need more params

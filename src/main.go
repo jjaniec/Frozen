@@ -14,7 +14,7 @@ var current_channels = []*channel{}
 func main() {
 	root_user := user{username: "root", nickname: "root", password: "toor"}
 	current_users = append(current_users, &root_user)
-	home_channel := channel{name: "#home", subscribed_users: []*user{&root_user}}
+	home_channel := channel{name: "#home", topic: "Base channel, owned by root", subscribed_users: []*user{&root_user}}
 	current_channels = append(current_channels, &home_channel)
 	//current_channels[0].subscribed_users = append(current_channels[0].subscribed_users, &root_user)
 	// users := []user{ {username: "root", nickname: "root", password: "toor"} }
