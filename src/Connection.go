@@ -19,6 +19,18 @@ type connection struct {
 	server	*server
 }
 
+func broadcast(message string) () {
+	for _, u := range current_users {
+		u.client.send(u.client.format_resp(message))
+	}
+}
+
+func channel_broadcast(target *channel, message string) () {
+	for _, u := range target.subscribed_users {
+		u.client.send(u.client.format_resp(message))
+	}
+}
+
 func (c *connection) end(reason string) {
 	fmt.Println("Connection: ", c.addr, " ended w/ reason: ", reason)
 	if (c.session != nil && c.session.nickname != "") {
@@ -28,6 +40,7 @@ func (c *connection) end(reason string) {
 				current_users[i] = current_users[len(current_users) - 1]
 				current_users[len(current_users) - 1] = nil
 				current_users = current_users[:len(current_users) - 1]
+				broadcast(c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "QUIT"))
 			}
 		}
 	}

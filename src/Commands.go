@@ -22,7 +22,6 @@ const ERR_NOSUCHCHANNEL = "403"
 const ERR_NOTONCHANNEL = "442"
 const ERR_USERONCHANNEL = "443"
 
-
 func (c *connection) handle_cmd_pass(password string) {
 	// https://tools.ietf.org/html/rfc1459#section-4.1.1
 	c.session.password = password
@@ -153,7 +152,7 @@ func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp
 	c.send(c.format_resp(RPL_TOPIC, c.session.nickname, newchan.name, ":", newchan.topic))
 	c.send(c.format_resp(RPL_NAMREPLY, fmt.Sprintf("%s = %s :%s", c.session.nickname, newchan.name, get_channel_nicknames(newchan))))
 	c.send(c.format_resp(RPL_ENDOFNAMES, c.session.nickname, newchan.name, ":End of NAMES list"))
-	c.send(c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "JOIN", channelname))
+	channel_broadcast(newchan, c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "JOIN", channelname))
 	// c.send(c.format_resp("NOTICE", c.session.nickname, fmt.Sprintf(":[%s] Welcome to the %s channel", channelname, channelname)))
 	c.handle_cmd_notice(fmt.Sprintf(":[%s] Welcome to the %s channel", channelname, channelname))
 	return
@@ -182,7 +181,7 @@ func (c *connection) handle_cmd_part(channelname string) (resp_code string, resp
 				chan_.subscribed_users[len(chan_.subscribed_users) - 1] = nil
 				chan_.subscribed_users = chan_.subscribed_users[:len(chan_.subscribed_users) - 1]
 
-				c.send(c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "PART", channelname))
+				channel_broadcast(chan_, c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "PART", channelname))
 
 				if (len(chan_.subscribed_users) <= 0 && chan_.name != "#home") {
 					for j, f := range current_channels {
