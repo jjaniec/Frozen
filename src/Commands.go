@@ -146,6 +146,9 @@ func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp
 	c.send(c.format_resp(RPL_TOPIC, c.session.nickname, newchan.name, ":", "Channel topic not implemented yet"))
 	c.send(c.format_resp(RPL_NAMREPLY, fmt.Sprintf("%s = %s :%s", c.session.nickname, newchan.name, get_channel_nicknames(newchan))))
 	c.send(c.format_resp(RPL_ENDOFNAMES, c.session.nickname, newchan.name, ":End of NAMES list"))
+	c.send(c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "JOIN", channelname))
+	// c.send(c.format_resp("NOTICE", c.session.nickname, fmt.Sprintf(":[%s] Welcome to the %s channel", channelname, channelname)))
+	c.handle_cmd_notice(fmt.Sprintf(":[%s] Welcome to the %s channel", channelname, channelname))
 	return
 }
 
@@ -187,4 +190,8 @@ func (c *connection) handle_cmd_part(channelname string) (resp_code string, resp
 		c.send(c.format_resp(ERR_NOTONCHANNEL, c.session.nickname, channelname, ":You're not on that channel"))
 	}
 	return
+}
+
+func (c *connection) handle_cmd_notice(text string) {
+	c.send(c.format_resp("NOTICE", c.session.nickname, text))
 }

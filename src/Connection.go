@@ -4,7 +4,7 @@ import (
 	"net"
 	"strings"
 	"fmt"
-	"os"
+	// "os"
 	"io"
 )
 
@@ -51,7 +51,11 @@ func (c *connection) send(text string) {
 }
 
 func (c *connection) format_resp(args ...string) (string) {
-	ret := []string {fmt.Sprintf(":%s", c.server.prefix)}
+	var ret []string
+	if (args[0][0] != ':') {
+		ret = []string {fmt.Sprintf(":%s", c.server.prefix)}
+	}
+	// ret := []string {fmt.Sprintf(":%s", c.server.prefix)}
 	for _, arg := range args {
 		ret = append(ret, arg)
 	}
@@ -62,10 +66,8 @@ func (c *connection) handle_line(words []string, raw_line string) {
 	// Here,handle nickname suffixes (like :Bob PRIVMSG Alex :bla bla)
 	cmd_str := words[0]
 	switch cmd_str {
-	case "ping":
-		c.send("pong")
-	case "kill":
-		os.Exit(1)
+	case "PING":
+		c.send(c.format_resp("PONG", "ping.frozen", fmt.Sprintf(":%s", c.server.prefix)))
 	case "PASS":
 		if len(words) < 1 {
 			c.send("ERR_NEEDMOREPARAMS")
@@ -111,7 +113,7 @@ func (c *connection) handle_line(words []string, raw_line string) {
 			c.send("You must login first !")
 		} else {
 			if len(words) < 2 {
-				c.send("ERR_NEEDMOREPARAMS") // send need more params
+				c.send(c.format_resp("461", c.session.nickname, "JOIN", ":Not enough parameters"))
 			} else {
 				c.handle_cmd_join(words[1])
 			}
