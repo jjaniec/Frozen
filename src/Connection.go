@@ -21,10 +21,25 @@ type connection struct {
 
 func (c *connection) end(reason string) {
 	fmt.Println("Connection: ", c.addr, " ended w/ reason: ", reason)
-	//remove connection & user from slices
-	// tmp[&c] := current_connections[len(current_connections) - 1]
-	// current_connections = 
-	// current_users = 
+	if (c.session != nil && c.session.nickname != "") {
+		for i, e := range current_users {
+			if (e.nickname == c.session.nickname) {
+				fmt.Println("Delete user", c.session.nickname)
+				current_users[i] = current_users[len(current_users) - 1]
+				current_users[len(current_users) - 1] = nil
+				current_users = current_users[:len(current_users) - 1]
+			}
+		}
+	}
+	for i, e := range current_connections {
+		if (e.addr == c.addr) {
+			fmt.Println("Delete connection", c)
+			current_connections[i] = current_connections[len(current_connections) - 1]
+			current_connections[len(current_connections) - 1] = nil
+			current_connections = current_connections[:len(current_connections) - 1]
+
+		}
+	}
 }
 
 func (c *connection) send(text string) {
