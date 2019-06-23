@@ -40,6 +40,22 @@ func (c *connection) handle_cmd_user(username string, hostname string, servernam
 	return RPL_WELCOME, fmt.Sprintf(":Welcome to the Internet Relay Network %s!%s@%s", c.session.nickname, c.session.username, c.server.prefix)
 }
 
+func (c *connection) handle_cmd_names(channels_names []string) (nicknames []string) {
+	// https://tools.ietf.org/html/rfc1459#section-4.2.5
+	var resp []string
+
+	fmt.Println(current_connections)
+	for _, e := range current_connections {
+		if (e.session != nil) {
+			resp = append(resp, e.session.nickname)
+		}
+	}
+	if (len(resp) == 0) {
+		return []string{"No users currently connected"}
+	}
+	return resp
+}
+
 func (c *connection) handle_cmd_privmsg(receiver string, text string) {
 	// https://tools.ietf.org/html/rfc1459#section-4.4.1
 	receivers := strings.Split(receiver, ",")

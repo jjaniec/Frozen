@@ -2,10 +2,10 @@ package main
 
 import (
 	"net"
-	"bufio"
 	"strings"
 	"fmt"
 	"os"
+	"io"
 )
 
 type connection struct {
@@ -39,26 +39,6 @@ func (c *connection) format_resp(args ...string) (string) {
 	return strings.Join(ret[:], " ")
 }
 
-func (c *connection) receive() (text []string) {
-	reader := bufio.NewReader(c.conn)
-	var lines []string
-	lines = nil
-	for {
-		netData, err := reader.ReadString('\n')
-		lines = append(lines, netData)
-		fmt.Println(lines)
-		if err != nil {
-			fmt.Println("err", err)
-			return nil
-		}
-		if len(lines) > 2 {
-			break
-		}
-	}
-	fmt.Println(lines)
-	return lines
-}
-
 func (c *connection) handle_line(words []string) {
 	switch words[0] {
 	case "ping":
@@ -71,16 +51,16 @@ func (c *connection) handle_line(words []string) {
 		} else {
 			c.handle_cmd_pass(words[1])
 		}
-	case "NICK":
+	case "NICK": 
 		if len(words) < 1 {
 			c.send("ERR_NEEDMOREPARAMS")
 		} else {
 			resp_code, resp_str := c.handle_cmd_nick(words[1])
-			if resp_str != "" && resp_code != ERR_NICKNAMEINUSE {
+			if resp_code == ERR_NICKNAMEINUSE {
+				c.send(c.format_resp(resp_code, "*", words[1], resp_str))
+			} else if resp_str != "" && resp_code != ERR_NICKNAMEINUSE {
 				c.send(c.format_resp(resp_code, resp_str))
 				c.session.client = c
-			} else {
-				c.send(c.format_resp(resp_code, "*", words[1], resp_str))
 			}
 		}
 	case "USER":
@@ -91,17 +71,9 @@ func (c *connection) handle_line(words []string) {
 			c.send(c.format_resp(resp_code, c.session.username, resp_str))
 		}
 	case "NAMES":
-		fmt.Println(current_connections)
-		users_connected_count := 0
-		for _, e := range current_connections {
-			if (e.session != nil) {
-				c.send(e.session.username)
-				users_connected_count++
-			}
-		}
-		if (users_connected_count == 0) {
-			c.send("No users currently connected")
-		}
+		resp := c.handle_cmd_names([]string{""})
+		c.send(c.format_resp("353", c.session.nickname, "*", "*", fmt.Sprintf(":%s", strings.Join(resp[:], " "))))
+		c.send(c.format_resp("366", c.session.nickname, "*", ":End of /NAMES list."))
 	case "JOIN":
 		if (*c.session == user{}) {
 			c.send("You must login first !")
@@ -115,15 +87,33 @@ func (c *connection) handle_line(words []string) {
 	}
 }
 
+func (c *connection) receive() (status error, text []string) {
+	// https://stackoverflow.com/questions/24339660/read-whole-data-with-golang-net-conn-read
+	buf := make([]byte, 0, 4096)
+	tmp := make([]byte, 1024)
+	n, err := c.conn.Read(tmp)
+	if err != nil {
+		if err != io.EOF {
+			fmt.Println("read error:", err)
+		}
+		return err, nil
+	}
+	buf = append(buf, tmp[:n]...)
+	// fmt.Println("Append: ", tmp)
+	fmt.Println("total size:", len(buf), " buf: ", buf)
+	lines := strings.Split(string(buf), "\r\n")
+	return nil, lines
+}
+
 func (c *connection) handler() {
 	fmt.Printf("Serving %s\n", c.conn.RemoteAddr().String())
 	defer c.end("Client lost")
 	for {
-		lines := c.receive()
-		if lines == nil {
-			print("nil")
+		status, lines := c.receive()
+		if status != nil {
 			break
 		}
+		print(lines)
 		for _, line := range lines {
 			temp := strings.TrimSpace(string(line))
 			words := strings.Fields(temp)
