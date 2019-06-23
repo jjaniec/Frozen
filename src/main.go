@@ -35,6 +35,7 @@ func main() {
 			conn.session = &user{}
 			conn.server = &e
 			current_connections = append(current_connections, &conn)
+			home_channel.subscribed_users = append(home_channel.subscribed_users, conn.session)
 			go conn.handler()
 		}
 	}

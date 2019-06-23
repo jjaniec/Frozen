@@ -120,10 +120,21 @@ func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp
 	for _, e := range current_channels {
 		if (e.name == channelname) {
 			e.subscribed_users = append(e.subscribed_users, c.session)
+			c.send(c.format_resp(RPL_TOPIC, c.session.nickname, e.name, ":", "Channel topic not implemented yet"))
+			channel_nicknames_fmt := strings.Join(get_channel_nicknames(e), " ")
+			c.send(c.format_resp(RPL_NAMREPLY, fmt.Sprintf("= %s :%s", e.name, channel_nicknames_fmt)))
+			c.send(c.format_resp(RPL_ENDOFNAMES, c.session.nickname, e.name, ":End of NAMES list"))
+			return
 		} else {
 			current_channels = append(current_channels, &channel{name: channelname, subscribed_users: []*user{c.session}})
-			c.send(fmt.Sprintf("Channel %s created", channelname))
-			return RPL_TOPIC, fmt.Sprintf(":Channel topic not implemented yet")
+			c.send(c.format_resp(RPL_TOPIC, c.session.nickname, e.name, ":", "Channel topic not implemented yet"))
+			channel_nicknames_fmt := strings.Join(get_channel_nicknames(e), " ")
+			c.send(c.format_resp(RPL_NAMREPLY, fmt.Sprintf("%s = %s :%s", c.session.nickname, e.name, channel_nicknames_fmt)))
+			c.send(c.format_resp(RPL_ENDOFNAMES, c.session.nickname, e.name, ":End of NAMES list"))
+
+			//return RPL_TOPIC, fmt.Sprintf(":Channel topic not implemented yet")
+			c.send(c.format_resp(RPL_TOPIC, fmt.Sprintf(":Channel topic not implemented yet")))
+			return
 		}
 	}
 	return
@@ -131,7 +142,7 @@ func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp
 
 func (c *connection) handle_cmd_list() (resp_code string, resp_str string){
 	// https://tools.ietf.org/html/rfc1459#section-4.2.6
-	c.send(c.format_resp(RPL_LISTSTART, c.session.nickname, "Channel Users :Topic"))
+	c.send(c.format_resp(RPL_LISTSTART, c.session.nickname, "Channel :Users Topic"))
 	for _, e := range current_channels {
 		c.send(c.format_resp(RPL_LIST, c.session.nickname, e.name, fmt.Sprintf("%d", len(e.subscribed_users)), ":topics not inplemtend yet"))
 	}
