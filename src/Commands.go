@@ -36,7 +36,6 @@ func (c *connection) handle_cmd_nick(nickname string) (resp_code string, resp_st
 	}
 	fmt.Println("User nickname: ", c.session.nickname, " updated as ", nickname)
 	c.session.nickname = nickname
-	// c.session.client = c
 	current_users = append(current_users, c.session)
 	return
 }
@@ -48,7 +47,6 @@ func (c *connection) handle_cmd_user(username string, hostname string, servernam
 	}
 	c.session.username = username
 	c.session.realname = realname
-	// return RPL_WELCOME, ":Welcome to the Internet Relay Network"
 	return RPL_WELCOME, fmt.Sprintf(":Welcome to the Internet Relay Network %s!%s@%s", c.session.nickname, c.session.username, c.server.prefix)
 }
 
@@ -78,10 +76,13 @@ func (c *connection) handle_cmd_names(channels string) (nicknames_fmt []string) 
 	if (channels != "") {
 		for _, c := range channels_list {
 			if (c[0] == '#') {
-				chan_ptr := get_channel(c[1:])
-				channel_nicknames := get_channel_nicknames(chan_ptr)
-				channel_nicknames_fmt := strings.Join(channel_nicknames, " ")
-				resp = append(resp, fmt.Sprintf("= %s :%s", c, channel_nicknames_fmt))
+				chan_ptr := get_channel(c)
+				if (chan_ptr != nil) {
+					channel_nicknames := get_channel_nicknames(chan_ptr)
+					channel_nicknames_fmt := strings.Join(channel_nicknames, " ")
+					resp = append(resp, fmt.Sprintf("= %s :%s", c, channel_nicknames_fmt))
+					return resp
+				}
 			}
 		}
 	} else {
@@ -97,12 +98,10 @@ func (c *connection) handle_cmd_names(channels string) (nicknames_fmt []string) 
 }
 
 func parse_last_argument(raw_line string) (match string) {
-	r, _ := regexp.Compile(`(PRIVMSG [#$]?[\w,]*)[ ]:([\w\s]{1,})$`)
+	r, _ := regexp.Compile(` :([\w ]{1,})`)
 	rslt := r.FindStringIndex(raw_line)
-	if (len(rslt) > 0) {
-		fmt.Println("Found", rslt, " - ", rslt[1], " - ", raw_line[rslt[1]:])
-		return "TEST"
-		// return raw_line[rslt[1]:]
+	if (len(rslt) > 0 && len(raw_line[2 + rslt[0]:]) > 0) {
+		return raw_line[2 + rslt[0]:]
 	}
 	return ""
 }
@@ -123,8 +122,18 @@ func (c *connection) handle_cmd_privmsg(receiver string, raw_line string) {
 			}
 			c.send(c.format_resp(ERR_NOSUCHNICK, ":No such nick/channel"))
 		} else {
-			// Handle host / server mask
-			print("TODO")
+			if (e[0] == '#') {
+				for _, channel := range current_channels {
+					if channel.name == e {
+						for _, sub_user := range channel.subscribed_users {
+							if (sub_user.nickname != c.session.nickname) {
+								sub_user.client.send(fmt.Sprintf(":%s!%s@%s PRIVMSG %s :%s", c.session.nickname, c.session.username, c.server.prefix, receiver, text))
+							}
+						}
+						break
+					}
+				}
+			}
 		}
 	}
 }
@@ -147,7 +156,6 @@ func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp
 	c.send(c.format_resp(RPL_NAMREPLY, fmt.Sprintf("%s = %s :%s", c.session.nickname, newchan.name, get_channel_nicknames(newchan))))
 	c.send(c.format_resp(RPL_ENDOFNAMES, c.session.nickname, newchan.name, ":End of NAMES list"))
 	c.send(c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "JOIN", channelname))
-	// c.send(c.format_resp("NOTICE", c.session.nickname, fmt.Sprintf(":[%s] Welcome to the %s channel", channelname, channelname)))
 	c.handle_cmd_notice(fmt.Sprintf(":[%s] Welcome to the %s channel", channelname, channelname))
 	return
 }

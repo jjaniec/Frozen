@@ -25,19 +25,26 @@ func (c *connection) end(reason string) {
 		for i, e := range current_users {
 			if (e.nickname == c.session.nickname) {
 				fmt.Println("Delete user", c.session.nickname)
-				current_users[i] = current_users[len(current_users) - 1]
-				current_users[len(current_users) - 1] = nil
-				current_users = current_users[:len(current_users) - 1]
+				if (len(current_users) == 1) {
+					current_users = []*user{}
+				} else {
+					current_users[i] = current_users[len(current_users) - 1]
+					current_users[len(current_users) - 1] = nil
+					current_users = current_users[:len(current_users) - 1]
+				}
 			}
 		}
 	}
 	for i, e := range current_connections {
 		if (e.addr == c.addr) {
 			fmt.Println("Delete connection", c)
-			current_connections[i] = current_connections[len(current_connections) - 1]
-			current_connections[len(current_connections) - 1] = nil
-			current_connections = current_connections[:len(current_connections) - 1]
-
+			if (len(current_connections) == 1) {
+				current_connections = []*connection{}
+			} else {
+				current_connections[i] = current_connections[len(current_connections) - 1]
+				current_connections[len(current_connections) - 1] = nil
+				current_connections = current_connections[:len(current_connections) - 1]
+			}
 		}
 	}
 }
@@ -82,7 +89,6 @@ func (c *connection) handle_line(words []string, raw_line string) {
 			if resp_code == ERR_NICKNAMEINUSE {
 				c.send(c.format_resp(resp_code, "*", words[1], resp_str))
 			} else if resp_code != ERR_NICKNAMEINUSE {
-				// c.send(c.format_resp(resp_code, resp_str))
 				c.session.client = c
 			}
 		}
@@ -127,7 +133,6 @@ func (c *connection) handle_line(words []string, raw_line string) {
 			c.handle_cmd_part(words[1])
 		}
 	case "PRIVMSG":
-		// print(words)
 		fmt.Println(c.session.client)
 		if (c.session.nickname == "") {
 			c.send(c.format_resp(ERR_NOTREGISTERED, "*", ":You have not registered"))
