@@ -9,6 +9,9 @@ const RPL_WELCOME = "001"
 const RPL_ENDOFNAMES = "366"
 const RPL_NAMREPLY = "353"
 const RPL_TOPIC = "332"
+const RPL_LISTSTART = "321"
+const RPL_LIST = "322"
+const RPL_LISTEND = "323"
 
 const ERR_NICKNAMEINUSE = "433"
 const ERR_NONICKNAMEGIVEN = "431"
@@ -128,11 +131,10 @@ func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp
 
 func (c *connection) handle_cmd_list() (resp_code string, resp_str string){
 	// https://tools.ietf.org/html/rfc1459#section-4.2.6
-	c.send("Channels list:")
+	c.send(c.format_resp(RPL_LISTSTART, c.session.nickname, "Channel Users :Topic"))
 	for _, e := range current_channels {
-		c.send(e.name)
+		c.send(c.format_resp(RPL_LIST, c.session.nickname, e.name, fmt.Sprintf("%d", len(e.subscribed_users)), ":topics not inplemtend yet"))
 	}
+	c.send(c.format_resp(RPL_LISTSTART, c.session.nickname, ":End of LIST"))
 	return
 }
-
-
