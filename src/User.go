@@ -10,7 +10,7 @@ type user struct {
 	nickname string
 	password string
 	realname string
-	client	*connection
+	client   *connection
 }
 
 func (u *user) send_message(msg string) {

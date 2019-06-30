@@ -5,7 +5,6 @@ import (
 	// "strconv"
 )
 
-
 var current_users = []*user{}
 var current_connections = []*connection{}
 var current_servers = []*server{}
@@ -16,7 +15,7 @@ func main() {
 	current_users = append(current_users, &root_user)
 	home_channel := channel{name: "#home", topic: "Base channel, owned by root", subscribed_users: []*user{&root_user}}
 	current_channels = append(current_channels, &home_channel)
-	servers := []server{ {prefix: "127.0.0.1", port: ":4242"} }
+	servers := []server{{prefix: "127.0.0.1", port: ":4242"}}
 	for _, e := range servers {
 		e.start()
 		current_servers = append(current_servers, &e)
@@ -29,7 +28,7 @@ func main() {
 				return
 			}
 
-			conn := connection{ conn: c, addr: c.RemoteAddr().String() }
+			conn := connection{conn: c, addr: c.RemoteAddr().String()}
 			conn.session = &user{}
 			conn.server = &e
 			current_connections = append(current_connections, &conn)

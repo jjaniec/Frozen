@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"strings"
-	"fmt"
 	// "os"
 	"io"
 )
@@ -13,19 +13,19 @@ const ERR_NOTEXTTOSEND = "412"
 const ERR_NOTREGISTERED = "451" // ":You have not registered"
 
 type connection struct {
-	conn	net.Conn
-	addr	string
-	session	*user
-	server	*server
+	conn    net.Conn
+	addr    string
+	session *user
+	server  *server
 }
 
-func broadcast(message string) () {
+func broadcast(message string) {
 	for _, u := range current_users {
 		u.client.send(u.client.format_resp(message))
 	}
 }
 
-func channel_broadcast(target *channel, message string) () {
+func channel_broadcast(target *channel, message string) {
 	for _, u := range target.subscribed_users {
 		u.client.send(u.client.format_resp(message))
 	}
@@ -33,30 +33,31 @@ func channel_broadcast(target *channel, message string) () {
 
 func (c *connection) end(reason string) {
 	fmt.Println("Connection: ", c.addr, " ended w/ reason: ", reason)
-	if (c.session != nil && c.session.nickname != "") {
+	if c.session != nil && c.session.nickname != "" {
 		for i, e := range current_users {
-			if (e != nil && e.nickname == c.session.nickname) {
+			if e != nil && e.nickname == c.session.nickname {
 				fmt.Println("Delete user", c.session.nickname)
-				if (len(current_users) == 1) {
+				if len(current_users) == 1 {
 					current_users = []*user{}
 				} else {
-					current_users[i] = current_users[len(current_users) - 1]
-					current_users[len(current_users) - 1] = nil
-					current_users = current_users[:len(current_users) - 1]
+
+					current_users[i] = current_users[len(current_users)-1]
+					current_users[len(current_users)-1] = nil
+					current_users = current_users[:len(current_users)-1]
 				}
 				broadcast(c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "QUIT"))
 			}
 		}
 	}
 	for i, e := range current_connections {
-		if (e != nil && e.addr == c.addr) {
+		if e != nil && e.addr == c.addr {
 			fmt.Println("Delete connection", c)
-			if (len(current_connections) == 1) {
+			if len(current_connections) == 1 {
 				current_connections = []*connection{}
 			} else {
-				current_connections[i] = current_connections[len(current_connections) - 1]
-				current_connections[len(current_connections) - 1] = nil
-				current_connections = current_connections[:len(current_connections) - 1]
+				current_connections[i] = current_connections[len(current_connections)-1]
+				current_connections[len(current_connections)-1] = nil
+				current_connections = current_connections[:len(current_connections)-1]
 			}
 		}
 	}
@@ -65,15 +66,17 @@ func (c *connection) end(reason string) {
 func (c *connection) send(text string) {
 	if len(text) > 0 {
 		resp := fmt.Sprintf("%s\r\n", text)
-		c.conn.Write([]byte(resp))
+		if c != nil && c.conn != nil {
+			c.conn.Write([]byte(resp))
+		}
 		fmt.Println("Answer", resp)
 	}
 }
 
-func (c *connection) format_resp(args ...string) (string) {
+func (c *connection) format_resp(args ...string) string {
 	var ret []string
-	if (args[0][0] != ':') {
-		ret = []string {fmt.Sprintf(":%s", c.server.prefix)}
+	if args[0][0] != ':' {
+		ret = []string{fmt.Sprintf(":%s", c.server.prefix)}
 	}
 	// ret := []string {fmt.Sprintf(":%s", c.server.prefix)}
 	for _, arg := range args {
@@ -94,7 +97,7 @@ func (c *connection) handle_line(words []string, raw_line string) {
 		} else {
 			c.handle_cmd_pass(words[1])
 		}
-	case "NICK": 
+	case "NICK":
 		if len(words) < 1 {
 			c.send("ERR_NEEDMOREPARAMS")
 		} else {
@@ -115,10 +118,10 @@ func (c *connection) handle_line(words []string, raw_line string) {
 	case "NAMES":
 		var nicknames_fmt []string
 
-		if (c.session.nickname == "") {
+		if c.session.nickname == "" {
 			return
 		}
-		if (len(words) > 1) {
+		if len(words) > 1 {
 			nicknames_fmt = c.handle_cmd_names(words[1])
 		} else {
 			nicknames_fmt = c.handle_cmd_names("")
@@ -143,7 +146,7 @@ func (c *connection) handle_line(words []string, raw_line string) {
 		if len(words) < 2 {
 			c.send("ERR_NEEDMOREPARAMS") // send need more params
 		} else {
-			if (len(words) == 2) {
+			if len(words) == 2 {
 				c.handle_cmd_topic(words[1], "")
 			} else {
 				c.handle_cmd_topic(words[1], strings.Join(words[2:], " "))
@@ -157,7 +160,7 @@ func (c *connection) handle_line(words []string, raw_line string) {
 		}
 	case "PRIVMSG":
 		fmt.Println(c.session.client)
-		if (c.session.nickname == "") {
+		if c.session.nickname == "" {
 			c.send(c.format_resp(ERR_NOTREGISTERED, "*", ":You have not registered"))
 		} else if len(words) == 1 {
 			c.send(c.format_resp(ERR_NORECIPIENT, c.session.nickname, ":No recipient given (PRIVMSG)"))

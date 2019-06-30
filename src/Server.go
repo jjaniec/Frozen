@@ -1,14 +1,14 @@
 package main
 
 import (
-	"net"
 	"fmt"
+	"net"
 )
 
 type server struct {
-	prefix		string
-	listener	net.Listener
-	port		string
+	prefix   string
+	listener net.Listener
+	port     string
 }
 
 func (s *server) start() {

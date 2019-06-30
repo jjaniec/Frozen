@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"strings"
 	"regexp"
+	"strings"
 )
 
 const RPL_WELCOME = "001"
@@ -30,7 +30,7 @@ func (c *connection) handle_cmd_pass(password string) {
 func (c *connection) handle_cmd_nick(nickname string) (resp_code string, resp_str string) {
 	// https://tools.ietf.org/html/rfc1459#section-4.1.2
 	for _, e := range current_users {
-		if (e.nickname == nickname) {
+		if e.nickname == nickname {
 			return ERR_NICKNAMEINUSE, ":Nickname is already in use."
 		}
 	}
@@ -40,9 +40,9 @@ func (c *connection) handle_cmd_nick(nickname string) (resp_code string, resp_st
 	return
 }
 
-func (c *connection) handle_cmd_user(username string, hostname string, servername string, realname string) (resp_code string, resp_str string){
+func (c *connection) handle_cmd_user(username string, hostname string, servername string, realname string) (resp_code string, resp_str string) {
 	// https://tools.ietf.org/html/rfc1459#section-4.1.3
-	if (c.session.nickname == "") {
+	if c.session.nickname == "" {
 		return ERR_NONICKNAMEGIVEN, fmt.Sprintf(":No nickname given")
 	}
 	c.session.username = username
@@ -50,9 +50,9 @@ func (c *connection) handle_cmd_user(username string, hostname string, servernam
 	return RPL_WELCOME, fmt.Sprintf(":Welcome to the Internet Relay Network %s!%s@%s", c.session.nickname, c.session.username, c.server.prefix)
 }
 
-func get_channel(channel_name string) (channel_ptr *channel){
+func get_channel(channel_name string) (channel_ptr *channel) {
 	for _, c := range current_channels {
-		if (c.name == channel_name) {
+		if c.name == channel_name {
 			return c
 		}
 	}
@@ -75,14 +75,14 @@ func (c *connection) handle_cmd_names(channels string) (nicknames_fmt []string) 
 	channels_list := strings.Split(channels, ",")
 	var is_channel_in_args = func(channels []string, current_channel *channel) bool {
 		for _, channel := range channels {
-			if (channel == current_channel.name) {
+			if channel == current_channel.name {
 				return true
 			}
 		}
 		return false
 	}
 	for _, channel := range current_channels {
-		if (channels == "" || (is_channel_in_args(channels_list, channel) == true)) {
+		if channels == "" || (is_channel_in_args(channels_list, channel) == true) {
 			channel_nicknames := get_channel_nicknames(channel)
 			channel_nicknames_fmt := strings.Join(channel_nicknames, " ")
 			resp = append(resp, fmt.Sprintf("= %s :%s", channel.name, channel_nicknames_fmt))
@@ -94,8 +94,8 @@ func (c *connection) handle_cmd_names(channels string) (nicknames_fmt []string) 
 func parse_last_argument(raw_line string) (match string) {
 	r, _ := regexp.Compile(` :([\w ]{1,})`)
 	rslt := r.FindStringIndex(raw_line)
-	if (len(rslt) > 0 && len(raw_line[2 + rslt[0]:]) > 0) {
-		return raw_line[2 + rslt[0]:]
+	if len(rslt) > 0 && len(raw_line[2+rslt[0]:]) > 0 {
+		return raw_line[2+rslt[0]:]
 	}
 	return ""
 }
@@ -106,9 +106,9 @@ func (c *connection) handle_cmd_privmsg(receiver string, raw_line string) {
 	text := parse_last_argument(raw_line)
 	fmt.Println("Send message", text, "- To receivers ", receivers)
 	for _, e := range receivers {
-		if (e[0] != '#' && e[0] != '$') {
+		if e[0] != '#' && e[0] != '$' {
 			for _, u := range current_users {
-				if (u.nickname == e) {
+				if u.nickname == e {
 					fmt.Println("Send to user : ", u, "client", u.client)
 					u.client.send(fmt.Sprintf(":%s!%s@%s PRIVMSG %s :%s", c.session.nickname, c.session.username, c.server.prefix, receiver, text))
 					return
@@ -116,11 +116,11 @@ func (c *connection) handle_cmd_privmsg(receiver string, raw_line string) {
 			}
 			c.send(c.format_resp(ERR_NOSUCHNICK, ":No such nick/channel"))
 		} else {
-			if (e[0] == '#') {
+			if e[0] == '#' {
 				for _, channel := range current_channels {
 					if channel.name == e {
 						for _, sub_user := range channel.subscribed_users {
-							if (sub_user.nickname != c.session.nickname) {
+							if sub_user.nickname != c.session.nickname {
 								sub_user.client.send(fmt.Sprintf(":%s!%s@%s PRIVMSG %s :%s", c.session.nickname, c.session.username, c.server.prefix, receiver, text))
 							}
 						}
@@ -132,20 +132,20 @@ func (c *connection) handle_cmd_privmsg(receiver string, raw_line string) {
 	}
 }
 
-func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp_str string){
+func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp_str string) {
 	// https://tools.ietf.org/html/rfc1459#section-1.3
 	// https://tools.ietf.org/html/rfc1459#section-4.2.1
-	if (channelname[0] != '#') {
+	if channelname[0] != '#' {
 		c.send(c.format_resp(ERR_BADCHANNELKEY, ":Channel name must start with '#' (server channel) or '&' (distributed channel)"))
-		return 
+		return
 	}
 	newchan := get_channel(channelname)
-	if (newchan == nil) {
+	if newchan == nil {
 		newchan = &channel{name: channelname, topic: "", subscribed_users: []*user{c.session}}
 		current_channels = append(current_channels, newchan)
 	} else {
 		for _, u := range newchan.subscribed_users {
-			if (u == c.session) {
+			if u == c.session {
 				c.send(c.format_resp(ERR_USERONCHANNEL, c.session.nickname, newchan.name, ":is already on channel"))
 				return
 			}
@@ -163,7 +163,7 @@ func (c *connection) handle_cmd_join(channelname string) (resp_code string, resp
 	return
 }
 
-func (c *connection) handle_cmd_list() (resp_code string, resp_str string){
+func (c *connection) handle_cmd_list() (resp_code string, resp_str string) {
 	// https://tools.ietf.org/html/rfc1459#section-4.2.6
 	c.send(c.format_resp(RPL_LISTSTART, c.session.nickname, "Channel :Users Topic"))
 	for _, e := range current_channels {
@@ -173,27 +173,26 @@ func (c *connection) handle_cmd_list() (resp_code string, resp_str string){
 	return
 }
 
-
-func (c *connection) handle_cmd_part(channelname string) (resp_code string, resp_str string){
+func (c *connection) handle_cmd_part(channelname string) (resp_code string, resp_str string) {
 	chan_ := get_channel(channelname)
-	if (chan_ == nil) {
+	if chan_ == nil {
 		c.send(c.format_resp(ERR_NOSUCHCHANNEL, c.session.nickname, channelname, ":No such channel"))
 	} else {
 		for i, e := range chan_.subscribed_users {
-			if (e == c.session) {
+			if e == c.session {
 				fmt.Printf("User %s left channel %s\n", c.session.nickname, chan_.name)
-				chan_.subscribed_users[i] = chan_.subscribed_users[len(chan_.subscribed_users) - 1]
-				chan_.subscribed_users[len(chan_.subscribed_users) - 1] = nil
-				chan_.subscribed_users = chan_.subscribed_users[:len(chan_.subscribed_users) - 1]
+				chan_.subscribed_users[i] = chan_.subscribed_users[len(chan_.subscribed_users)-1]
+				chan_.subscribed_users[len(chan_.subscribed_users)-1] = nil
+				chan_.subscribed_users = chan_.subscribed_users[:len(chan_.subscribed_users)-1]
 
 				channel_broadcast(chan_, c.format_resp(fmt.Sprintf(":%s!~%s@%s", c.session.nickname, c.session.username, c.server.prefix), "PART", channelname))
 
-				if (len(chan_.subscribed_users) <= 0 && chan_.name != "#home") {
+				if len(chan_.subscribed_users) <= 0 && chan_.name != "#home" {
 					for j, f := range current_channels {
-						if (f == chan_) {
-							current_channels[j] = current_channels[len(current_channels) - 1]
-							current_channels[len(current_channels) - 1] = nil
-							current_channels = current_channels[:len(current_channels) - 1]
+						if f == chan_ {
+							current_channels[j] = current_channels[len(current_channels)-1]
+							current_channels[len(current_channels)-1] = nil
+							current_channels = current_channels[:len(current_channels)-1]
 						}
 					}
 				}
@@ -208,12 +207,12 @@ func (c *connection) handle_cmd_part(channelname string) (resp_code string, resp
 //func (c *connection) handle_cmd_topic(channelname string, topic string) {
 func (c *connection) handle_cmd_topic(channelname string, topic string) {
 	chan_ := get_channel(channelname)
-	if (chan_ == nil) {
+	if chan_ == nil {
 		c.send(c.format_resp(ERR_NOSUCHCHANNEL, c.session.nickname, channelname, ":No such channel"))
 	} else {
 		for _, u := range chan_.subscribed_users {
-			if (u == c.session) {
-				if (topic == "") {
+			if u == c.session {
+				if topic == "" {
 					c.send(c.format_resp(RPL_TOPIC, c.session.nickname, chan_.name, ":", chan_.topic))
 				} else {
 					chan_.topic = topic
